@@ -98,6 +98,69 @@ class DropboxPOSTRemon:
             print("Note: Folder may already exist")
             return {"status": "folder_exists"}
 
+    def list_folder(self, folder_path="/", recursive=False, with_links=False):
+        print("\nGET METHOD 4: List Folder")
+
+        if not self.access_token:
+            raise Exception("Missing access token. Authorize first.")
+
+        # Dropbox expects "" for root
+        path = "" if folder_path in (None, "", "/") else folder_path
+
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json"
+        }
+
+        # 1) Initial list
+        url = "https://api.dropboxapi.com/2/files/list_folder"
+        payload = {
+            "path": path,
+            "recursive": bool(recursive),
+            "include_deleted": False
+        }
+        resp = requests.post(url, headers=headers, json=payload)
+        if resp.status_code != 200:
+            raise Exception(f"List failed: {resp.status_code} {resp.text}")
+
+        data = resp.json()
+        entries = data.get("entries", [])
+        cursor = data.get("cursor")
+        has_more = data.get("has_more", False)
+
+        # 2) Continue while more pages
+        cont_url = "https://api.dropboxapi.com/2/files/list_folder/continue"
+        while has_more:
+            cont_resp = requests.post(cont_url, headers=headers, json={"cursor": cursor})
+            if cont_resp.status_code != 200:
+                raise Exception(f"List (continue) failed: {cont_resp.status_code} {cont_resp.text}")
+            cont_data = cont_resp.json()
+            entries.extend(cont_data.get("entries", []))
+            cursor = cont_data.get("cursor")
+            has_more = cont_data.get("has_more", False)
+
+        # 3) Simplify result
+        simplified = []
+        for e in entries:
+            tag = e.get(".tag")
+            base = {
+                "tag": tag,  # "file" | "folder"
+                "name": e.get("name"),
+                "id": e.get("id"),
+                "path_lower": e.get("path_lower"),
+                "path_display": e.get("path_display")
+            }
+            if tag == "file":
+                base.update({
+                    "size": e.get("size"),
+                    "server_modified": e.get("server_modified"),
+                    "client_modified": e.get("client_modified"),
+                    "rev": e.get("rev")
+                })
+            simplified.append(base)
+        return {"entries": simplified}
+
+
 def main():
     print("StudyStart JYU Task 2.2 - POST Methods by Remon")
     
