@@ -1,0 +1,16 @@
+{% for e in entries %}
+          <tr>
+            <td>{{ e.tag }}</td>
+            <td>{{ e.name }}</td>
+            <td class="path">{{ e.path_display }}</td>
+            <td>{% if e.tag == 'file' %}{{ e.size }}{% endif %}</td>
+            <td>{% if e.tag == 'file' %}{{ e.server_modified }}{% endif %}</td>
+            <td>
+              {% if e.tag == 'folder' %}
+                <a class="btn" href="{{ url_for('list_items', path=e.path_display) }}">Open</a>
+              {% else %}
+                <span class="muted">—</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
